@@ -19,11 +19,11 @@ export default function useOrgel() {
     async function playMelody() {
         const synth = new Tone.Synth().toDestination();
         melody.forEach(({ time, note, duration }) => {
-            Tone.schedule(time => {
+            Tone.Transport.schedule(time => {
                 synth.triggerAttackRelease(note, duration, time);
             }, time);
         });
-        Tone.start();
+        Tone.Transport.start();
     }
 
     return { melody, generateOrgelMelody, playMelody };

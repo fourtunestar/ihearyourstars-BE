@@ -1,0 +1,47 @@
+.music-container {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+
+/* 🎵 입력 필드 & 버튼 스타일 */
+.input-area {
+    margin-bottom: 10px;
+}
+
+button, input {
+    pointer-events: auto !important;
+    margin: 5px;
+    padding: 8px;
+    font-size: 16px;
+}
+
+/* 🎼 애니메이션을 `note-area` 내에서만 실행 */
+.note-area {
+    position: absolute;
+    top: 50px;
+    left: 0;
+    width: 100%;
+    height: 300px;
+    overflow: hidden;
+    pointer-events: none; /* 👈 음표 애니메이션 영역에서만 클릭 방지 */
+}
+
+.note {
+    position: absolute;
+    bottom: -20px;
+    font-size: 24px;
+    animation: moveUp linear infinite;
+}
+
+/* 🎼 음표 애니메이션 */
+@keyframes moveUp {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(-300px);
+        opacity: 0;
+    }
+}
