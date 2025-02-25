@@ -4,12 +4,17 @@ let lastX = 0;
 let lastY = 0;
 let lastTime = Date.now();
 let bpm = 100; // 기본 BPM
+let targetBPM = bpm; // 목표 BPM (점진적인 변경을 위해 필요)
+const bpmSmoothingFactor = 0.1; // 🔹 BPM 변화 속도 조절 (값이 작을수록 부드러움)
+const minBPM = 80;
+const maxBPM = 130;
 let isPlaying = false;
 let currentMelody = [];
 let setNotesOnScreenRef = null;
-let currentPlaybackTime = 0; // 🔹 현재 재생 위치 저장
+let currentPlaybackTime = 0;
+let nextNoteTime = 0;
 
-// 🎵 마우스 속도 감지 및 BPM 조절
+// 🎵 마우스 속도 감지 및 BPM 조절 (점진적 변화 적용)
 function updateBPM(event) {
     if (!isPlaying) return;
 
@@ -21,52 +26,45 @@ function updateBPM(event) {
         const dy = event.clientY - lastY;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        bpm = Math.min(150, Math.max(70, (distance / deltaTime) * 500));
-        Tone.Transport.bpm.value = bpm;
+        // 마우스 속도를 80~130 BPM 범위로 조절
+        targetBPM = Math.min(maxBPM, Math.max(minBPM, (distance / deltaTime) * 600));
+        console.log(`🎵 Target BPM: ${Math.round(targetBPM)}`);
 
-        console.log(`🎵 Updated BPM: ${Math.round(bpm)}, Resuming from: ${currentPlaybackTime}`);
-
-        // 🎶 기존 재생 위치부터 다시 재생
-        if (currentMelody.length > 0) {
-            restartMelodyWithNewBPM();
-        }
+        lastX = event.clientX;
+        lastY = event.clientY;
+        lastTime = now;
     }
-
-    lastX = event.clientX;
-    lastY = event.clientY;
-    lastTime = now;
 }
 
-// 🎵 새로운 BPM에 맞게 기존 위치에서 다시 재생
-function restartMelodyWithNewBPM() {
-    if (!isPlaying) return;
-
-    console.log("🔄 Restarting melody from previous position:", currentPlaybackTime);
-    Tone.Transport.stop();
-    Tone.Transport.cancel();
-
-    playMelody(currentMelody, setNotesOnScreenRef, currentPlaybackTime);
+// 🎵 BPM 변화가 서서히 적용되도록 스무딩 처리
+function smoothBPMUpdate() {
+    bpm += (targetBPM - bpm) * bpmSmoothingFactor;
+    Tone.Transport.bpm.value = bpm;
+    setTimeout(smoothBPMUpdate, 100); // 🔄 100ms마다 BPM 업데이트
 }
+
+smoothBPMUpdate(); // 🚀 BPM 스무딩 시작
 
 // 마우스 이벤트 리스너 등록
-window.addEventListener("mousemove", updateBPM);
+// window.addEventListener("mousemove", updateBPM);
 
-// 🎶 멜로디 재생 함수 (현재 위치부터 재생 가능)
-export async function playMelody(melody, setNotesOnScreen, startTime = 0) {
+// 🎶 멜로디 재생 함수 (Play 버튼을 눌렀을 때 처음부터 다시 시작 가능)
+export async function playMelody(melody, setNotesOnScreen) {
     if (!melody || melody.length === 0) {
         alert("재생할 멜로디가 없습니다!");
         return;
     }
+    Tone.Transport.stop();
+    Tone.Transport.cancel();
+    Tone.context.resume();
+    isPlaying = false;
 
     isPlaying = true;
     currentMelody = melody;
     setNotesOnScreenRef = setNotesOnScreen;
-    currentPlaybackTime = startTime; // 🔹 재생 위치 초기화
+    currentPlaybackTime = 0;
 
     await Tone.start();
-    Tone.Transport.stop();
-    Tone.Transport.cancel();
-    Tone.context.resume();
 
     const synth = new Tone.Synth({
         oscillator: { type: "sine" },
@@ -74,39 +72,37 @@ export async function playMelody(melody, setNotesOnScreen, startTime = 0) {
     }).toDestination();
 
     setNotesOnScreen([]);
-
-    let index = Math.floor((startTime / Tone.Time("8n").toSeconds()) * (bpm / 100)); // 🔹 시작할 인덱스 계산
-    let currentTime = Tone.now();
+    let index = 0;
+    nextNoteTime = Tone.now();
 
     function playNextNote(time) {
         if (index >= melody.length) {
             Tone.Transport.stop();
             isPlaying = false;
-            setNotesOnScreen([]); 
+            setNotesOnScreen([]);
             console.log("🔴 Melody playback completed.");
             return;
         }
 
         const { note, duration } = melody[index];
-        const durationInSeconds = Tone.Time(duration).toSeconds() * (100 / bpm);
+        const adjustedDurationInSeconds = Tone.Time(duration).toSeconds() * (100 / bpm);
 
-        console.log(`🎵 Playing note: ${note}, Duration: ${duration}, Start Time: ${time}, BPM: ${bpm}`);
+        console.log(`🎵 Playing note: ${note}, Duration: ${duration} (Adjusted: ${adjustedDurationInSeconds}s), Start Time: ${time}, BPM: ${Math.round(bpm)}`);
 
-        synth.triggerAttackRelease(note, duration, time);
+        synth.triggerAttackRelease(note, adjustedDurationInSeconds, time);
 
-        // 🎼 현재 노트 하나만 애니메이션 추가
         Tone.Draw.schedule(() => {
             setNotesOnScreen([{ symbol: "♪", x: `${Math.random() * 80 + 10}%`, duration: 2 }]);
         }, time);
 
         index++;
-        currentPlaybackTime = index * durationInSeconds; // 🔹 현재 위치 업데이트
-        currentTime += durationInSeconds;
+        currentPlaybackTime = index * adjustedDurationInSeconds;
 
-        Tone.Transport.scheduleOnce(playNextNote, currentTime);
+        nextNoteTime = Tone.now() + adjustedDurationInSeconds;
+        Tone.Transport.scheduleOnce(playNextNote, nextNoteTime);
     }
 
-    // 🔹 기존 재생 위치에서 이어서 재생
-    Tone.Transport.scheduleOnce(playNextNote, currentTime);
+    nextNoteTime = Tone.now();
+    Tone.Transport.scheduleOnce(playNextNote, nextNoteTime);
     Tone.Transport.start();
 }
