@@ -1,14 +1,12 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Music from "./Router/TestMusic";
+import TestMusic from "./Router/TestMusic";
+
 function App() {
   return (
     <Router>
-      <BodyWrapper>
         <Routes>
-          <Route path="/music" element={<Music />} />
+          <Route path="/" element={<TestMusic />} />
         </Routes>
-        <Footer />
-      </BodyWrapper>
     </Router>
   );
 }
