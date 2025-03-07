@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>천공 오르골 음악 생성기</title>
+    <script defer src="midi.js"></script> <!-- MIDI 처리 스크립트 -->
+</head>
+<body>
+    <h1>🌌 천공 오르골 음악 생성기</h1>
+
+    <label>닉네임 입력:</label>
+    <input type="text" id="nickname" placeholder="닉네임 입력">
+
+    <label>별 선택:</label>
+    <select id="starSelect">
+        <option value="betelgeuse">베텔기우스 (노랑)</option>
+        <option value="polaris">폴라리스 (분홍)</option>
+        <option value="vega">베가 (보라)</option>
+        <option value="sirius">시리우스 (파랑)</option>
+        <option value="altair">알타이르 (초록)</option>
+    </select>
+
+    <label>별자리 선택:</label>
+    <select id="constellationSelect">
+        <option value="aries">양자리</option>
+        <option value="taurus">황소자리</option>
+        <option value="gemini">쌍둥이자리</option>
+        <option value="cancer">게자리</option>
+        <option value="leo">사자자리</option>
+        <option value="virgo">처녀자리</option>
+        <option value="libra">천칭자리</option>
+        <option value="scorpio">전갈자리</option>
+        <option value="sagittarius">사수자리</option>
+        <option value="capricorn">염소자리</option>
+        <option value="aquarius">물병자리</option>
+        <option value="pisces">물고기자리</option>
+    </select>
+
+    <button onclick="startPlayback()">🎵 음악 생성 & 재생</button>
+
+    <script>
+        function startPlayback() {
+            const nickname = document.getElementById("nickname").value;
+            const starName = document.getElementById("starSelect").value;
+            const constellation = document.getElementById("constellationSelect").value;
+
+            if (!nickname) {
+                alert("닉네임을 입력해주세요!");
+                return;
+            }
+
+            console.log(`사용자 입력 - 닉네임: ${nickname}, 별: ${starName}, 별자리: ${constellation}`);
+            handleUserInput(nickname, starName, constellation);
+        }
+    </script>
+</body>
+</html>
