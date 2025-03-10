@@ -49,6 +49,7 @@ function getChoseong(char) {
     return Math.floor(code / (21 * 28));
 }
 
+// TODO: 1, 3, 5 중 2개 조합을 반환
 // 한국어 닉네임에서 첫 글자와 마지막 글자를 이용해 두 개의 숫자(3 또는 5)를 반환
 function convertNicknameToNumbers(nickname) {
     if (nickname.length < 2) throw new Error("닉네임은 최소 2자 이상이어야 합니다.");
@@ -67,7 +68,9 @@ function convertNicknameToNumbers(nickname) {
     return [num1, num2];
 }
 
+// TODO: 두 음을 선택, 꼭 3/5가 아님
 // 화성 문자열에서 루트 음 추출 후, 해당 화성의 3도와 5도(삼화음의 두 음)를 반환
+// 코드의 음을 2개를 택하는 메서드
 function getChordTones(chord) {
     const match = chord.match(/^[A-G][#b]?/);
     if (!match) return { third: chord, fifth: chord };
@@ -101,6 +104,7 @@ function getPassingTone(tone1, tone2) {
 function generateFinalMelody(nickname, starName, constellation) {
     // 닉네임에서 두 숫자 추출 (예: [3, 5]) — 현재 이 값은 음 확장 시 직접 사용하지 않고, 각 그룹에서 기본적으로 3도/5도 음을 사용
     const [num1, num2] = convertNicknameToNumbers(nickname);
+    // 코드 선택됨
     const chords = chordProgressions[starName] || chordProgressions['betelgeuse'];
     const rhythmPattern = rhythmPatterns[constellation] || rhythmPatterns['aries'];
     let finalMelody = []; // 최종 음표 시퀀스 (노트 이름 배열)
@@ -110,9 +114,11 @@ function generateFinalMelody(nickname, starName, constellation) {
         const measureChords = chords[i]; // [chord1, chord2]
         // 각 화성에서 기본적으로 3도와 5도 추출 (항상 오름차순으로: 예, C: {third:"E", fifth:"G"})
         const tones1 = getChordTones(measureChords[0]);
-        const tones2 = getChordTones(measureChords[1]);
         // 기본 그룹별 음은 [3도, 5도]
+        // chordProgressions
         let baseGroup1 = [tones1.third, tones1.fifth];
+        
+        const tones2 = getChordTones(measureChords[1]);
         let baseGroup2 = [tones2.third, tones2.fifth];
 
         // 해당 마디의 리듬 패턴에 따라 각 그룹의 음표 수 결정
@@ -150,7 +156,7 @@ async function playMelody(melody) {
     
     melody.forEach((note, index) => {
         const player = new Audio();
-        player.src = `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/music_box-mp3/${note}.mp3`;
+        player.src = `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/music_box-mp3/${note}4.mp3`;
         
         // 간단히 각 음마다 0.5초 간격 재생 (리듬 패턴에 따라 음 개수 달라짐)
         let delay = index * 0.5;
