@@ -98,80 +98,107 @@ function getPassingTone(tone1, tone2) {
     return chromatic[passingIndex];
 }
 
-//
 // 최종 멜로디 생성: 각 마디별로 닉네임에서 얻은 숫자와 리듬 패턴에 따라 음 확장
-//
 function generateFinalMelody(nickname, starName, constellation) {
-    // 닉네임에서 두 숫자 추출 (예: [3, 5]) — 현재 이 값은 음 확장 시 직접 사용하지 않고, 각 그룹에서 기본적으로 3도/5도 음을 사용
     const [num1, num2] = convertNicknameToNumbers(nickname);
-    // 코드 선택됨
     const chords = chordProgressions[starName] || chordProgressions['betelgeuse'];
     const rhythmPattern = rhythmPatterns[constellation] || rhythmPatterns['aries'];
-    let finalMelody = []; // 최종 음표 시퀀스 (노트 이름 배열)
 
-    // 각 마디별로 처리 (총 8마디)
-    for (let i = 0; i < chords.length; i++) {
-        const measureChords = chords[i]; // [chord1, chord2]
-        // 각 화성에서 기본적으로 3도와 5도 추출 (항상 오름차순으로: 예, C: {third:"E", fifth:"G"})
+    const finalMelody = chords.map((measureChords, i) => {
         const tones1 = getChordTones(measureChords[0]);
-        // 기본 그룹별 음은 [3도, 5도]
-        // chordProgressions
-        let baseGroup1 = [tones1.third, tones1.fifth];
-        
         const tones2 = getChordTones(measureChords[1]);
+
+        let baseGroup1 = [tones1.third, tones1.fifth];
         let baseGroup2 = [tones2.third, tones2.fifth];
 
-        // 해당 마디의 리듬 패턴에 따라 각 그룹의 음표 수 결정
-        const pat = rhythmPattern[i]; // 한 마디에 적용되는 패턴 (A, B, C, D)
-        let group1Notes = [];
-        let group2Notes = [];
+        const pat = rhythmPattern[i]; // 한 마디에 적용되는 패턴
+        let group1Notes, group2Notes;
+
         if (pat === 'A') {
-            // 패턴 A: 그룹당 1음 → 기본 그룹의 첫 음만 사용
             group1Notes = [baseGroup1[0]];
             group2Notes = [baseGroup2[0]];
         } else if (pat === 'B' || pat === 'C') {
-            // 패턴 B, C: 그룹당 2음 → 기본 그룹 [3도, 5도] 그대로 사용
             group1Notes = baseGroup1;
             group2Notes = baseGroup2;
         } else if (pat === 'D') {
-            // 패턴 D: 그룹당 3음 → [첫 음, 보강음, 두 번째 음]
             group1Notes = [baseGroup1[0], getPassingTone(baseGroup1[0], baseGroup1[1]), baseGroup1[1]];
             group2Notes = [baseGroup2[0], getPassingTone(baseGroup2[0], baseGroup2[1]), baseGroup2[1]];
         } else {
-            // 기본은 B/C와 동일
             group1Notes = baseGroup1;
             group2Notes = baseGroup2;
         }
-        // 한 마디의 최종 음표: 두 그룹을 순서대로 이어붙임
-        finalMelody.push(...group1Notes, ...group2Notes);
-    }
-    return finalMelody;
+
+        return [...group1Notes, ...group2Notes];
+    });
+
+    return [finalMelody, rhythmPattern];
 }
 
-//
-// 리듬 패턴에 맞게 최종 멜로디를 재생하는 함수
-//
-async function playMelody(melody) {
+async function playMelody(melody, rhythmPattern, bpm = 60) {
     await loadSoundFont();
-    
-    melody.forEach((note, index) => {
+    const beatDuration = 60 / bpm; // 한 박자의 길이 (초 단위)
+
+    let currentTime = 0; // 전체적인 시간 관리
+
+    for (let measureIndex = 0; measureIndex < melody.length; measureIndex++) {
+        const chordGroup = melody[measureIndex];
+        const pattern = rhythmPattern[measureIndex]; // 현재 마디의 리듬 패턴
+        let noteDurations = [];
+
+        // 리듬 패턴에 따른 음표 길이 설정 (BPM 기준)
+        if (pattern === 'B') {
+            // ♩♪ (첫 음: 4분음표, 두 번째 음: 8분음표)
+            noteDurations = [beatDuration, beatDuration / 2]; // 1박자, 0.5박자
+        } else if (pattern === 'C') {
+            // ♪♩ (첫 음: 8분음표, 두 번째 음: 4분음표)
+            noteDurations = [beatDuration / 2, beatDuration]; // 0.5박자, 1박자
+        } else if (pattern === 'D') {
+            // ♪♪♪ (8분음표 3개)
+            noteDurations = [beatDuration / 2, beatDuration / 2, beatDuration / 2]; // 0.5박자씩 3개
+        } else if (pattern === 'A') {
+            // ♩. (점 4분음표 → 한 개의 음을 1.5박자 길이)
+            noteDurations = [beatDuration * 1.5]; // 1.5박자
+        }
+
+        // 음을 순차적으로 재생 (한 음이 끝난 후 다음 음을 재생)
+        for (let noteIndex = 0; noteIndex < chordGroup.length; noteIndex++) {
+            if (noteIndex < noteDurations.length) {
+                await playNote(chordGroup[noteIndex], noteDurations[noteIndex]); // 각 음을 재생 후 기다림
+            }
+        }
+
+        currentTime += 2 * beatDuration; // 각 마디(0.5마디 x 2)당 2박자 증가
+    }
+}
+
+// **🎹 개별 음을 재생하는 함수 (재생이 끝날 때까지 대기)**
+function playNote(note, duration) {
+    return new Promise((resolve) => {
         const player = new Audio();
         player.src = `https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/music_box-mp3/${note}4.mp3`;
-        
-        // 간단히 각 음마다 0.5초 간격 재생 (리듬 패턴에 따라 음 개수 달라짐)
-        let delay = index * 0.5;
-        setTimeout(() => player.play(), delay * 1000);
+
+        player.onended = resolve; // 음이 끝난 후 resolve 호출 → 다음 음 재생 가능
+        player.onerror = () => {
+            console.error(`음원 로드 실패: ${note}`);
+            resolve(); // 오류가 나도 다음 음을 재생할 수 있도록 보장
+        };
+
+        setTimeout(() => {
+            player.play();
+        }, 0);
+
+        // 일정 시간이 지나면 강제로 resolve (혹시 onended가 호출되지 않을 경우 대비)
+        setTimeout(resolve, duration * 1000);
     });
 }
 
-//
+
 // 사용자 입력을 받아 최종 멜로디를 생성하고 재생하는 함수
-//
 function handleUserInput(nickname, starName, constellation) {
     console.log(`사용자 입력 - 닉네임: ${nickname}, 별: ${starName}, 별자리: ${constellation}`);
-    const melody = generateFinalMelody(nickname, starName, constellation);
-    playMelody(melody);
-}``
+    const [melody, rhythmPattern] = generateFinalMelody(nickname, starName, constellation);
+    playMelody(melody, rhythmPattern);
+}
 
 // 9. AudioContext 활성화를 위한 클릭 이벤트 리스너
 document.addEventListener("click", () => {
